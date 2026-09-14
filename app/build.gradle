@@ -1,0 +1,28 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.omnigrabber.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.omnigrabber.app'
+        minSdk 24
+        targetSdk 35
+        versionCode 5
+        versionName '1.4.0'
+    }
+
+    buildTypes {
+        debug { minifyEnabled false }
+        release { minifyEnabled false }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output -> outputFileName = 'OmniGrabber.apk' }
+    }
+}
+
+dependencies {
+    implementation 'io.github.junkfood02.youtubedl-android:library:0.17.4'
+    implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.17.4'
+}
