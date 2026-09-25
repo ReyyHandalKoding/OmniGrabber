@@ -3,7 +3,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
     <application android:allowBackup="true" android:label="OmniGrabber" android:theme="@style/AppTheme" android:icon="@drawable/omni_logo" android:roundIcon="@drawable/omni_logo" android:usesCleartextTraffic="false" android:extractNativeLibs="true">
-        <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
+        <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true" android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>

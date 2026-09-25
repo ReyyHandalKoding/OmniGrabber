@@ -78,9 +78,25 @@ public class MainActivity extends Activity {
 
     private void buildUi(){
         android.widget.FrameLayout frame=new android.widget.FrameLayout(this);
-        bg=new VideoView(this); frame.addView(bg,new android.widget.FrameLayout.LayoutParams(-1,-1));
+        bg=new VideoView(this);
+bg.setBackgroundColor(BLACK);
+frame.addView(bg,new android.widget.FrameLayout.LayoutParams(-1,-1));
         int rid=getResources().getIdentifier("omni_bg","raw",getPackageName());
-        if(rid!=0){bg.setVideoURI(Uri.parse("android.resource://"+getPackageName()+"/"+rid));bg.setOnPreparedListener(mp->{mp.setLooping(true);mp.setVolume(0,0);mp.start();});}
+        if(rid!=0){
+bg.setVideoURI(Uri.parse("android.resource://"+getPackageName()+"/"+rid));
+bg.setOnPreparedListener(mp->{
+    mp.setLooping(true);
+    mp.setVolume(0,0);
+    int vw=mp.getVideoWidth(), vh=mp.getVideoHeight();
+    if(vw>0 && vh>0){
+        float sw=getResources().getDisplayMetrics().widthPixels;
+        float sh=getResources().getDisplayMetrics().heightPixels;
+        float scale=Math.max(sw/vw, sh/vh);
+        bg.setScaleX(scale);
+        bg.setScaleY(scale);
+    }
+    mp.start();
+});}
         View shade=new View(this); shade.setBackground(new android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0xD9010502,0xA8051208,0xF7010302})); frame.addView(shade,new android.widget.FrameLayout.LayoutParams(-1,-1));
         ScrollView sv=new ScrollView(this); sv.setFillViewport(true); root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(28),dp(18),dp(24)); sv.addView(root); frame.addView(sv,new android.widget.FrameLayout.LayoutParams(-1,-1)); setContentView(frame);
 
@@ -89,8 +105,16 @@ public class MainActivity extends Activity {
 
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(16),dp(16),dp(16),dp(16));card.setBackground(box(0xE608140A,20,0x8039FF14,1));LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(18);root.addView(card,cp);
         TextView h=tv("PASTE TIKTOK URL",13,NEON);h.setTypeface(Typeface.DEFAULT_BOLD);card.addView(h,new LinearLayout.LayoutParams(-1,dp(30)));
-        urlInput=new EditText(this);urlInput.setSingleLine(true);urlInput.setTextColor(Color.WHITE);urlInput.setTextSize(13);urlInput.setHintTextColor(0x7796B89A);urlInput.setHint("https://vt.tiktok.com/... or full TikTok URL");urlInput.setPadding(dp(14),0,dp(14),0);urlInput.setBackground(box(0xCC020604,13,0x5544FF44,1));card.addView(urlInput,new LinearLayout.LayoutParams(-1,dp(54)));
-        grab=new Button(this);grab.setText("⚡  GET TIKTOK MEDIA");grab.setTextColor(BLACK);grab.setTextSize(13);grab.setAllCaps(false);grab.setTypeface(Typeface.DEFAULT_BOLD);grab.setBackground(box(NEON,14,0,0));LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,dp(54));gp.topMargin=dp(12);card.addView(grab,gp);grab.setOnClickListener(v->{click(v);analyze();});
+        urlInput=new EditText(this);urlInput.setSingleLine(true);
+        urlInput.setHorizontallyScrolling(true);
+        urlInput.setSelectAllOnFocus(false);
+        urlInput.setTextColor(Color.WHITE);urlInput.setTextSize(13);urlInput.setHintTextColor(0x7796B89A);urlInput.setHint("https://vt.tiktok.com/... or full TikTok URL");urlInput.setPadding(dp(14),0,dp(14),0);urlInput.setBackground(box(0xCC020604,13,0x5544FF44,1));card.addView(urlInput,new LinearLayout.LayoutParams(-1,dp(54)));
+        grab=new Button(this);grab.setText("⚡  GET TIKTOK MEDIA");grab.setTextColor(BLACK);grab.setTextSize(13);grab.setAllCaps(false);grab.setTypeface(Typeface.DEFAULT_BOLD);grab.setBackground(box(NEON,14,0,0));LinearLayout.LayoutParams gp=new LinearLayout.LayoutParams(-1,dp(54));gp.topMargin=dp(12);card.addView(grab,gp);grab.setOnClickListener(v->{
+            click(v);
+            ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(urlInput.getWindowToken(),0);
+            urlInput.clearFocus();
+            analyze();
+        });
 
         resultBox=new LinearLayout(this);resultBox.setOrientation(LinearLayout.VERTICAL);resultBox.setPadding(dp(16),dp(14),dp(16),dp(14));resultBox.setBackground(box(0xE6081009,18,0x5539FF14,1));LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,-2);rp.topMargin=dp(16);root.addView(resultBox,rp);
         status=tv("● READY",11,NEON);status.setTypeface(Typeface.DEFAULT_BOLD);resultBox.addView(status,new LinearLayout.LayoutParams(-1,dp(30)));
@@ -148,7 +172,7 @@ public class MainActivity extends Activity {
 
     private JSONObject callApi(String tiktokUrl)throws Exception{
         String key=BuildConfig.RAPIDAPI_KEY;
-        if(key==null||key.trim().isEmpty()) throw new Exception("RapidAPI configuration belum tersedia");
+        if(key==null||key.trim().isEmpty()) throw new Exception("RapidAPI belum dikonfigurasi di GitHub Actions (RAPIDAPI_KEY)");
         String q=URLEncoder.encode(tiktokUrl,"UTF-8");
         URL u=new URL("https://"+API_HOST+API_PATH+"?url="+q);
         HttpURLConnection c=(HttpURLConnection)u.openConnection();

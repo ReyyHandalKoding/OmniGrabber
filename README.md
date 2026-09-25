@@ -13,3 +13,5 @@ TikTok-first Android downloader.
 - APK output: `OmniGrabber.apk`.
 
 GitHub Actions reads the RapidAPI credential from the repository secret `RAPIDAPI_KEY`.
+The workflow stops before compiling if that secret is empty, so it will never produce an APK that silently reports missing configuration.
+The UI background is cropped to fill the screen and the soft keyboard uses resize mode, preventing the gray side area seen in v1.6.
