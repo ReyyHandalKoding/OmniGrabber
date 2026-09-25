@@ -44,8 +44,6 @@ public class MainActivity extends Activity {
     private static final int NEON = Color.rgb(57,255,20);
     private static final int BLACK = Color.rgb(2,5,3);
     private static final int RED = Color.rgb(255,90,90);
-    private static final String API_HOST = "social-media-video-downloader.p.rapidapi.com";
-    private static final String API_PATH = "/Get-TikTok-Post-Details";
 
     private LinearLayout root, resultBox;
     private EditText urlInput;
@@ -140,14 +138,14 @@ bg.setOnPreparedListener(mp->{
     private void analyze(){
         String u=urlInput.getText().toString().trim();
         if(!isTikTok(u)){urlInput.setError("Masukkan URL TikTok yang valid");return;}
-        source=u; grab.setEnabled(false); grab.setText("RESOLVING..."); status.setText("◉ RESOLVING TIKTOK URL..."); status.setTextColor(NEON); quality.setText("Short link vt.tiktok.com akan diikuti otomatis.");
+        source=u; grab.setEnabled(false); grab.setText("EXTRACTING..."); status.setText("◉ RESOLVING TIKTOK URL..."); status.setTextColor(NEON); quality.setText("Ekstraksi langsung di perangkat. Tidak memakai API eksternal.");
         io.execute(()->{try{
             String resolved=resolveUrl(u);
-            main.post(()->{status.setText("◉ GETTING MEDIA...");quality.setText("Mengambil media TikTok...");});
-            JSONObject data=callApi(resolved);
+            main.post(()->{status.setText("◉ EXTRACTING MEDIA...");quality.setText("Membaca data media TikTok langsung...");});
+            JSONObject data=extractTikTokPage(resolved);
             mediaUrl=findBestMediaUrl(data);
-            if(mediaUrl==null) throw new Exception("API tidak mengembalikan direct media URL");
-            title=safeName(findFirstText(data,"title","desc","description","caption"));
+            if(mediaUrl==null) throw new Exception("TikTok tidak memberikan direct media URL. Coba link video lain.");
+            title=safeName(findFirstText(data,"desc","description","title","caption"));
             if(title.equals("TikTok_media")) title="TikTok_"+UUID.randomUUID().toString().substring(0,8);
             kind="video";
             main.post(this::showReady);
@@ -160,8 +158,8 @@ bg.setOnPreparedListener(mp->{
         HttpURLConnection c=null;
         try{
             c=(HttpURLConnection)new URL(raw).openConnection();
-            c.setInstanceFollowRedirects(true); c.setConnectTimeout(10000); c.setReadTimeout(10000);
-            c.setRequestMethod("GET"); c.setRequestProperty("User-Agent","Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/130 Mobile Safari/537.36");
+            c.setInstanceFollowRedirects(true); c.setConnectTimeout(12000); c.setReadTimeout(15000);
+            c.setRequestMethod("GET"); c.setRequestProperty("User-Agent",mobileUserAgent()); c.setRequestProperty("Accept-Language","en-US,en;q=0.9");
             c.connect();
             int code=c.getResponseCode();
             String finalUrl=c.getURL().toString();
@@ -170,19 +168,76 @@ bg.setOnPreparedListener(mp->{
         }finally{if(c!=null)c.disconnect();}
     }
 
-    private JSONObject callApi(String tiktokUrl)throws Exception{
-        String key=BuildConfig.RAPIDAPI_KEY;
-        if(key==null||key.trim().isEmpty()) throw new Exception("RapidAPI belum dikonfigurasi di GitHub Actions (RAPIDAPI_KEY)");
-        String q=URLEncoder.encode(tiktokUrl,"UTF-8");
-        URL u=new URL("https://"+API_HOST+API_PATH+"?url="+q);
-        HttpURLConnection c=(HttpURLConnection)u.openConnection();
-        c.setConnectTimeout(15000);c.setReadTimeout(25000);c.setRequestMethod("GET");
-        c.setRequestProperty("X-RapidAPI-Key",key);c.setRequestProperty("X-RapidAPI-Host",API_HOST);c.setRequestProperty("Accept","application/json");
-        int code=c.getResponseCode();InputStream in=code>=200&&code<300?c.getInputStream():c.getErrorStream();String body=read(in);c.disconnect();
-        if(code<200||code>=300) throw new Exception("RapidAPI HTTP "+code+(body.isEmpty()?"":" • "+body.substring(0,Math.min(180,body.length()))));
-        if(body.trim().isEmpty())throw new Exception("RapidAPI mengembalikan response kosong");
-        return new JSONObject(body);
+    private JSONObject extractTikTokPage(String pageUrl)throws Exception{
+        HttpURLConnection c=(HttpURLConnection)new URL(pageUrl).openConnection();
+        c.setConnectTimeout(15000); c.setReadTimeout(20000); c.setRequestMethod("GET");
+        c.setRequestProperty("User-Agent",mobileUserAgent());
+        c.setRequestProperty("Accept","text/html,application/xhtml+xml,application/json;q=0.9,*/*;q=0.8");
+        c.setRequestProperty("Accept-Language","en-US,en;q=0.9");
+        c.setRequestProperty("Referer","https://www.tiktok.com/");
+        int code=c.getResponseCode();
+        InputStream in=code>=200&&code<400?c.getInputStream():c.getErrorStream();
+        String html=read(in); c.disconnect();
+        if(code>=400) throw new Exception("TikTok page HTTP "+code);
+        if(html.trim().isEmpty()) throw new Exception("TikTok mengembalikan halaman kosong");
+
+        String[] ids={"__UNIVERSAL_DATA_FOR_REHYDRATION__","SIGI_STATE","__NEXT_DATA__"};
+        for(String id:ids){
+            String json=extractScriptJson(html,id);
+            if(json!=null){
+                try{return new JSONObject(json);}catch(Exception ignored){}
+            }
+        }
+
+        // Fallback: build a small JSON object from common TikTok media fields.
+        JSONObject fallback=new JSONObject();
+        String play=extractJsonUrl(html,"playAddr");
+        String download=extractJsonUrl(html,"downloadAddr");
+        String desc=extractJsonString(html,"desc");
+        if(play!=null) fallback.put("playAddr",play);
+        if(download!=null) fallback.put("downloadAddr",download);
+        if(desc!=null) fallback.put("desc",desc);
+        if(play!=null||download!=null) return fallback;
+        throw new Exception("Data media TikTok tidak ditemukan. TikTok mungkin sedang membatasi request.");
     }
+
+    private String extractScriptJson(String html,String id){
+        String marker="id=\""+id+"\"";
+        int p=html.indexOf(marker); if(p<0){marker="id='"+id+"'";p=html.indexOf(marker);} if(p<0)return null;
+        int gt=html.indexOf('>',p); if(gt<0)return null;
+        int end=html.indexOf("</script>",gt); if(end<0)return null;
+        String s=html.substring(gt+1,end).trim();
+        if(s.startsWith("<!--"))s=s.substring(4); if(s.endsWith("-->"))s=s.substring(0,s.length()-3);
+        return s.trim();
+    }
+
+    private String extractJsonUrl(String html,String key){
+        String v=extractJsonString(html,key); return isHttp(v)?v:null;
+    }
+
+    private String extractJsonString(String html,String key){
+        String needle="\""+key+"\""; int p=html.indexOf(needle); if(p<0)return null;
+        int colon=html.indexOf(':',p+needle.length()); if(colon<0)return null;
+        int q=html.indexOf('\"',colon+1); if(q<0)return null;
+        StringBuilder out=new StringBuilder(); boolean esc=false;
+        for(int i=q+1;i<html.length();i++){
+            char ch=html.charAt(i);
+            if(esc){out.append(ch);esc=false;continue;}
+            if(ch=='\\'){out.append(ch);esc=true;continue;}
+            if(ch=='\"')break;
+            out.append(ch);
+        }
+        return unescapeJson(out.toString());
+    }
+
+    private String unescapeJson(String s){
+        if(s==null)return null;
+        try{return new JSONObject("{\"v\":\""+s.replace("\"","\\\"")+"\"}").optString("v",s);}catch(Exception ignored){
+            return s.replace("\\/","/").replace("\\u002F","/").replace("\\u0026","&").replace("\\u003F","?").replace("\\u003D","=");
+        }
+    }
+
+    private String mobileUserAgent(){return "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36";}
 
     private String findBestMediaUrl(JSONObject root){List<Candidate> list=new ArrayList<>();collect(root,"",list);Candidate best=null;for(Candidate c:list){if(!isHttp(c.url))continue;String x=c.url.toLowerCase(Locale.US);if(x.contains("avatar")||x.contains("profile")||x.contains("cover")||x.contains("music")||x.contains("author"))continue;int score=c.score;if(x.contains("mp4"))score+=30;if(x.contains("video"))score+=20;if(x.contains("play"))score+=25;if(x.contains("download"))score+=25;if(x.contains("wm"))score-=20;if(x.contains("watermark"))score-=25;if(best==null||score>best.score)best=new Candidate(c.url,score);}return best==null?null:best.url;}
     private void collect(Object v,String key,List<Candidate> out){if(v instanceof JSONObject){JSONObject o=(JSONObject)v;JSONArray names=o.names();if(names!=null)for(int i=0;i<names.length();i++){String k=names.optString(i);Object x=o.opt(k);collect(x,k,out);}}else if(v instanceof JSONArray){JSONArray a=(JSONArray)v;for(int i=0;i<a.length();i++)collect(a.opt(i),key,out);}else if(v instanceof String){String s=(String)v;if(isHttp(s)){String k=key==null?"":key.toLowerCase(Locale.US);int score=0;if(k.contains("no_watermark")||k.contains("nowatermark"))score+=100;if(k.contains("download"))score+=70;if(k.contains("play"))score+=60;if(k.equals("url"))score+=20;if(k.contains("video"))score+=40;if(k.contains("image")||k.contains("avatar")||k.contains("cover"))score-=50;out.add(new Candidate(s,score));}}}
@@ -200,7 +255,7 @@ bg.setOnPreparedListener(mp->{
 
     private void downloadCurrent(){if(mediaUrl.isEmpty()){fail("Media belum tersedia");return;}download.setEnabled(false);status.setText("◉ DOWNLOADING...");quality.setText("Menyimpan media TikTok ke Download/OmniGrabber...");io.execute(()->{try{File tmp=downloadTemp(mediaUrl);String saved=saveToDownloads(tmp,title);try{tmp.delete();}catch(Exception ignored){}main.post(()->{status.setText("✓ DOWNLOAD COMPLETE");status.setTextColor(NEON);quality.setText("Saved: "+saved);download.setEnabled(true);});}catch(Exception e){main.post(()->{download.setEnabled(true);fail(explain(e));});}});}
 
-    private File downloadTemp(String u)throws Exception{File dir=new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),"OmniGrabber");if(!dir.exists()&&!dir.mkdirs())throw new Exception("Folder sementara gagal dibuat");String ext="mp4";String low=u.toLowerCase(Locale.US);if(low.contains(".jpg")||low.contains(".jpeg")||low.contains(".png")||low.contains(".webp"))ext="jpg";File f=new File(dir,"tiktok_"+System.currentTimeMillis()+"."+ext);HttpURLConnection c=(HttpURLConnection)new URL(u).openConnection();c.setConnectTimeout(15000);c.setReadTimeout(30000);c.setRequestProperty("User-Agent","Mozilla/5.0");int code=c.getResponseCode();if(code<200||code>=300)throw new Exception("Media HTTP "+code);try(InputStream in=c.getInputStream();OutputStream out=new FileOutputStream(f)){copy(in,out);}c.disconnect();if(f.length()==0)throw new Exception("File media kosong");return f;}
+    private File downloadTemp(String u)throws Exception{File dir=new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),"OmniGrabber");if(!dir.exists()&&!dir.mkdirs())throw new Exception("Folder sementara gagal dibuat");String ext="mp4";String low=u.toLowerCase(Locale.US);if(low.contains(".jpg")||low.contains(".jpeg")||low.contains(".png")||low.contains(".webp"))ext="jpg";File f=new File(dir,"tiktok_"+System.currentTimeMillis()+"."+ext);HttpURLConnection c=(HttpURLConnection)new URL(u).openConnection();c.setConnectTimeout(15000);c.setReadTimeout(30000);c.setRequestProperty("User-Agent",mobileUserAgent());c.setRequestProperty("Referer","https://www.tiktok.com/");int code=c.getResponseCode();if(code<200||code>=300)throw new Exception("Media HTTP "+code);try(InputStream in=c.getInputStream();OutputStream out=new FileOutputStream(f)){copy(in,out);}c.disconnect();if(f.length()==0)throw new Exception("File media kosong");return f;}
     private String saveToDownloads(File src,String base)throws Exception{String ext=extension(src.getName());String filename=safeName(base)+"."+ext;if(Build.VERSION.SDK_INT>=29){android.content.ContentValues v=new android.content.ContentValues();v.put(MediaStore.MediaColumns.DISPLAY_NAME,filename);v.put(MediaStore.MediaColumns.MIME_TYPE,ext.equals("jpg")?"image/jpeg":"video/mp4");v.put(MediaStore.MediaColumns.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/OmniGrabber");Uri uri=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v);if(uri==null)throw new Exception("MediaStore gagal");try(InputStream in=new FileInputStream(src);OutputStream out=getContentResolver().openOutputStream(uri)){copy(in,out);}return "Download/OmniGrabber/"+filename;}else{File dir=new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS),"OmniGrabber");if(!dir.exists()&&!dir.mkdirs())throw new Exception("Folder Downloads gagal");File dst=new File(dir,filename);try(InputStream in=new FileInputStream(src);OutputStream out=new FileOutputStream(dst)){copy(in,out);}return dst.getAbsolutePath();}}
     private String read(InputStream in)throws Exception{if(in==null)return "";StringBuilder s=new StringBuilder();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1)s.append(new String(b,0,n,StandardCharsets.UTF_8));return s.toString();}
     private void copy(InputStream in,OutputStream out)throws Exception{byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1)out.write(b,0,n);out.flush();}

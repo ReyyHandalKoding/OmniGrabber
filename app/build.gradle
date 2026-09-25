@@ -8,9 +8,8 @@ android {
         applicationId 'com.omnigrabber.app'
         minSdk 24
         targetSdk 35
-        versionCode 7
-        versionName '1.6.0'
-        buildConfigField 'String', 'RAPIDAPI_KEY', '"' + (project.findProperty('rapidApiKey') ?: '') + '"'
+        versionCode 9
+        versionName '1.8.0'
     }
 
     buildFeatures { buildConfig true }

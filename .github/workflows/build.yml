@@ -18,18 +18,8 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
-      - name: Check RapidAPI configuration
-        env:
-          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
-        run: |
-          if [ -z "$RAPIDAPI_KEY" ]; then
-            echo "ERROR: GitHub repository secret RAPIDAPI_KEY belum diisi."
-            exit 1
-          fi
       - name: Build OmniGrabber
-        env:
-          RAPIDAPI_KEY: ${{ secrets.RAPIDAPI_KEY }}
-        run: gradle assembleDebug --no-daemon --stacktrace -PrapidApiKey="$RAPIDAPI_KEY"
+        run: gradle assembleDebug --no-daemon --stacktrace
       - name: Verify APK
         run: test -f app/build/outputs/apk/debug/OmniGrabber.apk
       - name: Upload OmniGrabber.apk

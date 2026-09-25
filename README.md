@@ -1,17 +1,7 @@
-# OmniGrabber 1.6
+# OmniGrabber TikTok Direct 1.8
 
-TikTok-first Android downloader.
+TikTok-only Android downloader. Extraction happens directly inside the APK. No RapidAPI, no Render, and no external API server.
 
-- Accepts full TikTok URLs and `vt.tiktok.com` short links.
-- Resolves TikTok redirects inside the app.
-- Uses the RapidAPI TikTok Post Details endpoint.
-- Finds a direct video URL from the JSON response without depending on Cobalt or native yt-dlp.
-- Preview and Download.
-- Saves to `Download/OmniGrabber`.
-- Background video + looping theme music.
-- Preview pauses the theme music and closing preview resumes it.
-- APK output: `OmniGrabber.apk`.
+Flow: paste TikTok URL -> resolve vt.tiktok.com -> fetch TikTok page data -> extract direct media URL -> preview/download.
 
-GitHub Actions reads the RapidAPI credential from the repository secret `RAPIDAPI_KEY`.
-The workflow stops before compiling if that secret is empty, so it will never produce an APK that silently reports missing configuration.
-The UI background is cropped to fill the screen and the soft keyboard uses resize mode, preventing the gray side area seen in v1.6.
+The extractor depends on TikTok page data and may need maintenance if TikTok changes its web response.
