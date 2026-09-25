@@ -8,9 +8,12 @@ android {
         applicationId 'com.omnigrabber.app'
         minSdk 24
         targetSdk 35
-        versionCode 5
-        versionName '1.4.0'
+        versionCode 7
+        versionName '1.6.0'
+        buildConfigField 'String', 'RAPIDAPI_KEY', '"' + (project.findProperty('rapidApiKey') ?: '') + '"'
     }
+
+    buildFeatures { buildConfig true }
 
     buildTypes {
         debug { minifyEnabled false }
@@ -23,6 +26,4 @@ android {
 }
 
 dependencies {
-    implementation 'io.github.junkfood02.youtubedl-android:library:0.17.4'
-    implementation 'io.github.junkfood02.youtubedl-android:ffmpeg:0.17.4'
 }

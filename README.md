@@ -1,14 +1,15 @@
-# OmniGrabber 1.4
+# OmniGrabber 1.6
 
-Native Android downloader powered by yt-dlp. Cobalt has been completely removed.
+TikTok-first Android downloader.
 
-- TikTok / YouTube / Instagram / X and other yt-dlp-supported sites
-- Best available quality up to 2160p when the source exposes it
-- Audio extraction to MP3 via bundled FFmpeg
-- Photo/video/audio mode selector
-- Background video + looping theme music
-- Theme music pauses for video/audio preview, but stays playing for photo preview
-- Output APK is exactly `OmniGrabber.apk`
-- Launcher icon uses the supplied OmniGrabber artwork
+- Accepts full TikTok URLs and `vt.tiktok.com` short links.
+- Resolves TikTok redirects inside the app.
+- Uses the RapidAPI TikTok Post Details endpoint.
+- Finds a direct video URL from the JSON response without depending on Cobalt or native yt-dlp.
+- Preview and Download.
+- Saves to `Download/OmniGrabber`.
+- Background video + looping theme music.
+- Preview pauses the theme music and closing preview resumes it.
+- APK output: `OmniGrabber.apk`.
 
-Important: platform restrictions, login walls, age gates, private posts, or anti-bot checks can still prevent extraction. The app no longer depends on dead Cobalt public instances.
+GitHub Actions reads the RapidAPI credential from the repository secret `RAPIDAPI_KEY`.
