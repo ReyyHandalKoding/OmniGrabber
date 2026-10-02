@@ -1,0 +1,32 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.omnigrabber.app'
+    compileSdk 35
+
+    def backendUrl = project.findProperty("OMNI_BACKEND_URL") ?: ""
+    def escapedBackendUrl = backendUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+
+    defaultConfig {
+        applicationId 'com.omnigrabber.app'
+        minSdk 24
+        targetSdk 35
+        versionCode 11
+        versionName '2.0.0'
+        buildConfigField "String", "BACKEND_URL", "\"${escapedBackendUrl}\""
+    }
+
+    buildFeatures { buildConfig true }
+
+    buildTypes {
+        debug { minifyEnabled false }
+        release { minifyEnabled false }
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output -> outputFileName = 'OmniGrabber.apk' }
+    }
+}
+
+dependencies {
+}

@@ -1,0 +1,10 @@
+{
+  "name": "omnigrabber-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OmniGrabber Pterodactyl backend",
+  "main": "index.js",
+  "scripts": { "start": "sh pterodactyl-start.sh" },
+  "engines": { "node": ">=20" },
+  "dependencies": { "express": "^5.1.0" }
+}

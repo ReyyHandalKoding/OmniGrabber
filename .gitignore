@@ -1,0 +1,9 @@
+.gradle/
+.idea/
+local.properties
+build/
+app/build/
+server/node_modules/
+server/tmp/
+server/bin/yt-dlp
+*.iml
